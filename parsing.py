@@ -6,7 +6,7 @@ Provides:
 - get_config: read and parse the config file into a typed dict
 """
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Optional
 from parsing_validator import ParsingValidator
 
 
@@ -66,7 +66,7 @@ def transform_data(data: Dict[str, Any]) -> None:
         raise ValueError(f"transform_data validation error: {e}")
 
 
-def get_config() -> Dict[str, Any]:
+def get_config(file_name: Optional[str] = None) -> Dict[str, Any]:
     """Read and parse 'config.txt' into a typed configuration dictionary.
 
     The config file must contain lines in the form KEY=VALUE. Lines that
@@ -83,7 +83,9 @@ def get_config() -> Dict[str, Any]:
         ValueError: If integer conversion for WIDTH/HEIGHT fails.
     """
 
-    with open("config.txt", "r", encoding="utf-8") as fd:
+    if file_name is None:
+        file_name = "default_config.txt"
+    with open(file_name, "r", encoding="utf-8") as fd:
         content: str = fd.read()
 
         data: Dict[str, Any] = {}
