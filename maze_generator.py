@@ -171,7 +171,6 @@ class MazeGenerator:
 
         if self.perfect:
             self.wilson()
-        self.convert_to_hex()
 
     def wilson(self) -> None:
         """Generate a perfect maze using Wilson's algorithm.
@@ -264,11 +263,11 @@ class MazeGenerator:
         hex_chars: str = "0123456789ABCDEF"
         for row, height_row in enumerate(self.maze):
             for col, case in enumerate(height_row):
-                # case is an int here
                 self.maze[row][col] = hex_chars[case]
 
     def set_maze_to_file(self) -> None:
 
+        self.convert_to_hex()
         with open(self.output_file, "w") as file:
             for height_row in self.maze:
                 for case in height_row:
@@ -279,3 +278,6 @@ class MazeGenerator:
             file.write(f"{self.entry_point[0]},{self.entry_point[1]}\n")
             file.write(f"{self.exit_point[0]},{self.exit_point[1]}\n")
             file.write(self.path)
+
+    def find_path(self):
+        pass

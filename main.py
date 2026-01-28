@@ -16,6 +16,7 @@ def main():
         return
 
     maze_gen.generate_maze()
+    maze_gen.find_path()
     maze_gen.set_maze_to_file()
 
 
