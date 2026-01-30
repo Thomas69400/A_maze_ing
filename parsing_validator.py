@@ -95,7 +95,7 @@ class ParsingValidator(BaseModel):
         height: Optional[int] = values.data.get("height")
         if width is None or height is None:
             return v
-        if v[0] >= width or v[1] >= height:
+        if v[1] >= width or v[0] >= height:
             raise ValueError("coordinates must be within maze bounds")
         return v
 

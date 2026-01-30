@@ -53,6 +53,11 @@ def transform_data(data: Dict[str, Any]) -> None:
     perfect_raw: str = str(data.get("PERFECT", "")).lower()
     data["PERFECT"] = perfect_raw == "true"
 
+    exit_point: Tuple[int, int] = data["EXIT"]
+    data["EXIT"] = (exit_point[1], exit_point[0])
+    entry_point: Tuple[int, int] = data["ENTRY"]
+    data["ENTRY"] = (entry_point[1], entry_point[0])
+
     try:
         ParsingValidator(
             width=data["WIDTH"],
@@ -62,6 +67,7 @@ def transform_data(data: Dict[str, Any]) -> None:
             perfect=data["PERFECT"],
             output_file=data["OUTPUT_FILE"]
         )
+
     except Exception as e:
         raise ValueError(f"transform_data validation error: {e}")
 

@@ -5,7 +5,7 @@ Wilson's algorithm. All public functions and classes use Google-style
 docstrings and explicit typing.
 """
 
-from typing import Tuple, List, Union, Dict, Set
+from typing import Tuple, List, Union, Dict, Set, Optional
 from random import choice
 from enum import Enum
 
@@ -16,10 +16,10 @@ class PathEnumerate(Enum):
     Values are chosen so that opposing directions have distinct bit masks.
     """
 
-    NORTH: int = 1
-    EAST: int = 2
-    SOUTH: int = 4
-    WEST: int = 8
+    N: Tuple[int, int] = (1, 0)
+    E: Tuple[int, int] = (2, 1)
+    S: Tuple[int, int] = (4, 2)
+    W: Tuple[int, int] = (8, 3)
 
     @staticmethod
     def oppose_bit(bit: int) -> int:
@@ -32,14 +32,14 @@ class PathEnumerate(Enum):
             The integer bit representing the opposing direction.
         """
 
-        if bit == PathEnumerate.NORTH.value:
-            return PathEnumerate.SOUTH.value
-        if bit == PathEnumerate.SOUTH.value:
-            return PathEnumerate.NORTH.value
-        if bit == PathEnumerate.EAST.value:
-            return PathEnumerate.WEST.value
-        if bit == PathEnumerate.WEST.value:
-            return PathEnumerate.EAST.value
+        if bit == PathEnumerate.N.value[0]:
+            return PathEnumerate.S.value[0]
+        if bit == PathEnumerate.S.value[0]:
+            return PathEnumerate.N.value[0]
+        if bit == PathEnumerate.E.value[0]:
+            return PathEnumerate.W.value[0]
+        if bit == PathEnumerate.W.value[0]:
+            return PathEnumerate.E.value[0]
         raise ValueError("Invalid direction bit")
 
 
@@ -58,10 +58,10 @@ class MazeGenerator:
     """
 
     dir: Dict[PathEnumerate, Tuple[int, int]] = {
-        PathEnumerate.EAST: (0, 1),
-        PathEnumerate.WEST: (0, -1),
-        PathEnumerate.NORTH: (-1, 0),
-        PathEnumerate.SOUTH: (1, 0)
+        PathEnumerate.E: (0, 1),
+        PathEnumerate.W: (0, -1),
+        PathEnumerate.N: (-1, 0),
+        PathEnumerate.S: (1, 0)
     }
 
     def __init__(
@@ -160,13 +160,13 @@ class MazeGenerator:
             for col, _ in enumerate(height_row):
                 mask = 0
                 if row == 0:
-                    mask |= PathEnumerate.NORTH.value
+                    mask |= PathEnumerate.N.value[0]
                 if row == self.height - 1:
-                    mask |= PathEnumerate.SOUTH.value
+                    mask |= PathEnumerate.S.value[0]
                 if col == 0:
-                    mask |= PathEnumerate.WEST.value
+                    mask |= PathEnumerate.W.value[0]
                 if col == self.width - 1:
-                    mask |= PathEnumerate.EAST.value
+                    mask |= PathEnumerate.E.value[0]
                 self.maze[row][col] |= mask
 
         if self.perfect:
@@ -201,8 +201,8 @@ class MazeGenerator:
             for i in range(len(walls)):
                 pos: Tuple[int, int] = path[i]
                 n_pos: Tuple[int, int] = path[i + 1]
-                bit: int = walls[i].value
-                o_bit: int = PathEnumerate.oppose_bit(walls[i].value)
+                bit: int = walls[i].value[0]
+                o_bit: int = PathEnumerate.oppose_bit(walls[i].value[0])
                 self.maze[pos[0]][pos[1]] = self.maze[pos[0]][pos[1]] ^ bit
                 self.maze[n_pos[0]][n_pos[1]] = (
                     self.maze[n_pos[0]][n_pos[1]] ^ o_bit
@@ -266,9 +266,19 @@ class MazeGenerator:
                 self.maze[row][col] = hex_chars[case]
 
     def set_maze_to_file(self) -> None:
+        """Write the maze representation and metadata to the output file.
+
+        The maze cells are converted to hexadecimal characters and written
+        row-by-row. After the maze grid, this writes a blank line, then
+        the entry and exit coordinates on separate lines and finally the
+        optional path string stored in :attr:`path`.
+
+        Raises:
+            OSError: If the output file cannot be written.
+        """
 
         self.convert_to_hex()
-        with open(self.output_file, "w") as file:
+        with open(self.output_file, "w", encoding="utf-8") as file:
             for height_row in self.maze:
                 for case in height_row:
                     file.write(case)
@@ -279,5 +289,115 @@ class MazeGenerator:
             file.write(f"{self.exit_point[0]},{self.exit_point[1]}\n")
             file.write(self.path)
 
-    def find_path(self):
-        pass
+    def check_walls(self, point: Tuple[int, int], dir: PathEnumerate) -> bool:
+        """Return whether a wall exists in a given cardinal direction.
+
+        Args:
+            point: A (row, col) tuple indicating the cell to inspect.
+            dir: A :class:`PathEnumerate` value indicating which
+                direction to test (N, E, S, W).
+
+        Returns:
+            True if the wall/flag bit is set for that direction, False
+            otherwise.
+        """
+
+        return bool((self.maze[point[0]][point[1]] >> dir.value[1]) & 1)
+
+    def resolve_maze(self) -> None:
+        """Resolve the generated maze then put the path in self"""
+
+        path: Dict[Tuple[int, int], int] = self.get_general_path()
+
+        path_str, f = self.find_quickest_path(path, self.entry_point)
+        self.path = path_str
+
+    def find_quickest_path(
+        self,
+        path: Dict[Tuple[int, int], int],
+        pos: Tuple[int, int],
+    ) -> Tuple[str, bool]:
+        """Recursively construct the shortest path string from ``pos``.
+
+        The function expects a precomputed distance map ``path`` where
+        keys are cell coordinates and values are distances from the
+        entry point. It walks to neighbouring cells whose distance is
+        exactly one greater than the current cell, building a string of
+        direction names (e.g. 'NESW').
+
+        Args:
+            path: Mapping from cell coordinate to integer distance.
+            pos: Current cell coordinate to expand from.
+
+        Returns:
+            A tuple (directions, found) where ``directions`` is a
+            concatenated string of direction names leading from ``pos``
+            to the exit when ``found`` is True. If not found, returns
+            ("", False).
+        """
+
+        if pos == self.exit_point:
+            return "", True
+
+        for key, value in self.dir.items():
+            n_pos: Tuple[int, int] = (pos[0] + value[0], pos[1] + value[1])
+
+            if (
+                not self.check_walls(pos, key)
+                and self.check_bounds(n_pos)
+                and path.get(n_pos) == path.get(pos, -1) + 1
+                and path.get(n_pos) is not None
+            ):
+
+                if n_pos == self.exit_point:
+                    return key.name, True
+
+                p, found = self.find_quickest_path(path, n_pos)
+                if found:
+                    return key.name + p, True
+
+        return "", False
+
+    def get_general_path(self) -> Dict[Tuple[int, int], int]:
+        """Compute a breadth-first distance map from the entry point.
+
+        This function performs a BFS starting at :attr:`entry_point` and
+        returns a mapping of cell coordinates to their distance (in
+        steps) from the entry. Cells that are not reachable will retain
+        a value of ``None``.
+
+        Returns:
+            A dictionary mapping (row, col) tuples to integer distances.
+        """
+
+        q_front: List[Tuple[int, int]] = [self.entry_point]
+        q_back: List[Tuple[int, int]] = []
+        path: Dict[Tuple[int, int], Optional[int]] = {}
+
+        for row in range(self.height):
+            for col in range(self.width):
+                path[(row, col)] = None
+        path[self.entry_point] = 0
+
+        while q_front:
+            start: Tuple[int, int] = q_front[0]
+            for key, value in self.dir.items():
+                n_point: Tuple[int, int] = (
+                    start[0] + value[0], start[1] + value[1]
+                )
+                if (
+                    self.check_bounds(n_point)
+                    and not self.check_walls(start, key)
+                    and (
+                        path[n_point] is None
+                        or path[n_point] + 1 < path[start]
+                    )
+                ):
+                    path[n_point] = path[start] + 1
+                    q_back.append(n_point)
+
+            if q_back:
+                q_front.append(q_back.pop(0))
+            q_front.pop(0)
+
+        return {k: v for k, v in path.items()}
