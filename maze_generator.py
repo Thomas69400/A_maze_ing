@@ -91,6 +91,7 @@ class MazeGenerator:
         self.output_file: str = output_file
         self.maze: List[List[Union[str, int]]] = []
         self.path: str = ""
+        self.logo: Set[Tuple[int, int]] = set()
 
     @classmethod
     def from_dict(cls, data: dict) -> "MazeGenerator":
@@ -169,8 +170,35 @@ class MazeGenerator:
                     mask |= PathEnumerate.E.value[0]
                 self.maze[row][col] |= mask
 
+        self.place_42()
+
         if self.perfect:
             self.wilson()
+
+    def place_42(self) -> None:
+        if not (self.width >= 8 and self.height >= 6):
+            print("Error, can't place 42. Maze too small.")
+            return
+
+        middle_h: int = int(self.height / 2)
+        middle_w: int = int(self.width / 2)
+        # 4
+        self.logo.add((middle_h, middle_w - 2))
+        for i in range(3):
+            self.logo.add((middle_h - i, middle_w - 3))
+            self.logo.add((middle_h + i, middle_w - 1))
+        # 2
+        self.logo.add((middle_h, middle_w + 2))
+        for i in range(3):
+            self.logo.add((middle_h - i, middle_w + 3))
+            self.logo.add((middle_h + i, middle_w + 1))
+            self.logo.add((middle_h + 2, middle_w + i + 1))
+            self.logo.add((middle_h - 2, middle_w + i + 1))
+
+        if self.entry_point in self.logo or self.exit_point in self.logo:
+            self.logo = set()
+            print(
+                "Error, can't place 42 on maze : entry or exit is on logo.")
 
     def wilson(self) -> None:
         """Generate a perfect maze using Wilson's algorithm.
@@ -186,6 +214,8 @@ class MazeGenerator:
                 unvisited.add((i, j))
 
         unvisited.remove(self.entry_point)
+        for pos in self.logo:
+            unvisited.remove(pos)
 
         while unvisited:
             start: Tuple[int, int] = choice(list(unvisited))
@@ -203,10 +233,8 @@ class MazeGenerator:
                 n_pos: Tuple[int, int] = path[i + 1]
                 bit: int = walls[i].value[0]
                 o_bit: int = PathEnumerate.oppose_bit(walls[i].value[0])
-                self.maze[pos[0]][pos[1]] = self.maze[pos[0]][pos[1]] ^ bit
-                self.maze[n_pos[0]][n_pos[1]] = (
-                    self.maze[n_pos[0]][n_pos[1]] ^ o_bit
-                )
+                self.maze[pos[0]][pos[1]] ^= bit
+                self.maze[n_pos[0]][n_pos[1]] ^= o_bit
 
     def random_walk(
         self,
@@ -229,11 +257,13 @@ class MazeGenerator:
         """
 
         walls: List[PathEnumerate] = []
+
         while True:
             neighbors: List[Tuple[PathEnumerate, Tuple[int, int]]] = []
             for key, d in self.dir.items():
                 n: Tuple[int, int] = (d[0] + start[0], d[1] + start[1])
-                if self.check_bounds(n):
+
+                if self.check_bounds(n) and n not in self.logo:
                     neighbors.append((key, n))
 
             if not neighbors:
@@ -244,7 +274,7 @@ class MazeGenerator:
             path_enum: PathEnumerate = random_value[0]
             random_point: Tuple[int, int] = random_value[1]
             start = random_point
-            if random_point in path:
+            if random_point in path or random_point in self.logo:
                 index: int = path.index(random_point) + 1
                 path = path[:index]
                 walls = walls[:index - 1]
