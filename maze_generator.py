@@ -176,7 +176,7 @@ class MazeGenerator:
             self.wilson()
 
     def place_42(self) -> None:
-        if not (self.width >= 8 and self.height >= 6):
+        if not (self.width >= 9 and self.height >= 7):
             print("Error, can't place 42. Maze too small.")
             return
 
