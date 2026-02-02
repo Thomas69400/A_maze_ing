@@ -89,7 +89,7 @@ class MazeGenerator:
         self.exit_point: Tuple[int, int] = exit_point
         self.perfect: bool = perfect
         self.output_file: str = output_file
-        self.maze: List[List[Union[str, int]]] = []
+        self.maze: List[List[int]] = []
         self.path: str = ""
         self.logo: Set[Tuple[int, int]] = set()
 
@@ -209,6 +209,7 @@ class MazeGenerator:
 
         unvisited: Set[Tuple[int, int]] = set()
         visited: Set[Tuple[int, int]] = {self.entry_point}
+
         for i, height_row in enumerate(self.maze):
             for j, _ in enumerate(height_row):
                 unvisited.add((i, j))
@@ -285,15 +286,16 @@ class MazeGenerator:
                 if random_point in visited:
                     return path, walls
 
-    def convert_to_hex(self) -> None:
+    @staticmethod
+    def convert_to_hex(maze: List[List[int]]) -> None:
         """Convert integer cell bitmasks to hexadecimal character
         representation.
         """
 
         hex_chars: str = "0123456789ABCDEF"
-        for row, height_row in enumerate(self.maze):
+        for row, height_row in enumerate(maze):
             for col, case in enumerate(height_row):
-                self.maze[row][col] = hex_chars[case]
+                maze[row][col] = hex_chars[case]
 
     def set_maze_to_file(self) -> None:
         """Write the maze representation and metadata to the output file.
@@ -307,9 +309,12 @@ class MazeGenerator:
             OSError: If the output file cannot be written.
         """
 
-        self.convert_to_hex()
+        maze_file: List[List[Union[str, int]]] = []
+        for row, height in enumerate(self.maze):
+            maze_file.append(height.copy())
+        self.convert_to_hex(maze_file)
         with open(self.output_file, "w", encoding="utf-8") as file:
-            for height_row in self.maze:
+            for height_row in maze_file:
                 for case in height_row:
                     file.write(case)
                 file.write("\n")

@@ -26,18 +26,66 @@ class XVar:
         self.line_len = 0
         self.bpp = 0
         self.maze_template = None
+        self.n_s_width = 30
+        self.n_s_height = 3
+        self.e_w_width = 10
+        self.e_w_height = 25
+
+
+def mymouse(button, x, y, mystuff):
+    print(f"Got mouse event! button {button} at {x},{y}.")
 
 
 def close_window(xvar: XVar):
     xvar.mlx.mlx_loop_exit(xvar.mlx_ptr)
 
 
-def put_pixel(xvar: XVar, x: int, y: int, color: int):
-    pixel: int = int((y * xvar.line_len + (x * 4)))
-    xvar.maze_template[pixel] = color & 0xFF
-    xvar.maze_template[pixel + 1] = (color >> 8) & 0xFF
-    xvar.maze_template[pixel + 2] = (color >> 16) & 0xFF
-    xvar.maze_template[pixel + 3] = (color >> 24) & 0xFF
+def generate_wall_north(xvar: XVar, pixel: int, color: int):
+    for row in range(xvar.n_s_height):
+        for col in range(xvar.n_s_width):
+            xvar.maze_template[pixel + col +
+                               (xvar.line_len * row)] = color & 0xFF
+
+
+def generate_wall_south(xvar: XVar, pixel: int, color: int):
+    for row in range(xvar.n_s_height):
+        for col in range(xvar.n_s_width):
+            xvar.maze_template[pixel + col + (xvar.line_len * row) +
+                               xvar.e_w_height * xvar.line_len] = color & 0xFF
+
+
+def generate_wall_west(xvar: XVar, pixel: int, color: int):
+    for row in range(xvar.e_w_height):
+        for col in range(xvar.e_w_width):
+            xvar.maze_template[pixel + col +
+                               (xvar.line_len * row)] = color & 0xFF
+
+
+def generate_wall_east(xvar: XVar, pixel: int, color: int):
+    for row in range(xvar.e_w_height):
+        for col in range(xvar.e_w_width):
+            xvar.maze_template[pixel + col + xvar.n_s_width +
+                               (xvar.line_len * row)] = color & 0xFF
+
+
+def generate_maze_pixel(
+    xvar: XVar,
+    x: int,
+    y: int,
+    color: int,
+    maze_value: int
+) -> None:
+
+    pixel: int = int((y * xvar.line_len + (x * (xvar.bpp // 8))))
+
+    if maze_value & 1:
+        generate_wall_north(xvar, pixel, color)
+    if (maze_value >> 1) & 1:
+        generate_wall_east(xvar, pixel, color)
+    if (maze_value >> 2) & 1:
+        generate_wall_south(xvar, pixel, color)
+    if (maze_value >> 3) & 1:
+        generate_wall_west(xvar, pixel, color)
 
 
 def get_key(key: int, xvar: XVar):
@@ -100,7 +148,7 @@ def main() -> None:
 
     try:
         xvar.win_ptr = xvar.mlx.mlx_new_window(
-            xvar.mlx_ptr, 1000, 1000, "A-Maze-Ing")
+            xvar.mlx_ptr, 1500, 1500, "A-Maze-Ing")
         xvar.mlx.mlx_clear_window(xvar.mlx_ptr, xvar.win_ptr)
         if not xvar.win_ptr:
             raise Exception("Can't create main window")
@@ -110,21 +158,22 @@ def main() -> None:
 
     print_strings(xvar)
     xvar.mlx.mlx_key_hook(xvar.win_ptr, get_key, xvar)
-    xvar.img = xvar.mlx.mlx_new_image(xvar.mlx_ptr, 600, 600)
+    xvar.img = xvar.mlx.mlx_new_image(xvar.mlx_ptr, 1000, 1000)
     xvar.maze_template, xvar.bpp, xvar.line_len, endian = xvar.mlx.mlx_get_data_addr(
         xvar.img)
 
-    for i in range(500):
-        for j in range(500):
-            put_pixel(xvar, i, j, 0xFFFFFF)
+    for row, height in enumerate(maze_gen.maze):
+        for col, value in enumerate(height):
+            generate_maze_pixel(xvar, col * 16,
+                                row * 16, 0xFFFFFF, value)
+
+    # generate_maze_pixel(xvar, 1, 1, 0xFFFFFF, 13)
+    # generate_maze_pixel(xvar, 8, 1, 0xFFFFFF, 3)
+    # generate_maze_pixel(xvar, 16, 1, 0xFFFFFF, 4)
     xvar.mlx.mlx_put_image_to_window(
         xvar.mlx_ptr, xvar.win_ptr, xvar.img, 0, 0)
 
-    for i in range(400, 500):
-        for j in range(400, 500):
-            put_pixel(xvar, i, j, 0xABCDEF)
-    xvar.mlx.mlx_put_image_to_window(
-        xvar.mlx_ptr, xvar.win_ptr, xvar.img, 0, 0)
+    xvar.mlx.mlx_mouse_hook(xvar.win_ptr, mymouse, None)
 
     xvar.mlx.mlx_hook(xvar.win_ptr, 33, 0, close_window, xvar)
     xvar.mlx.mlx_loop(xvar.mlx_ptr)
