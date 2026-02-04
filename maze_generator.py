@@ -90,7 +90,8 @@ class MazeGenerator:
         self.perfect: bool = perfect
         self.output_file: str = output_file
         self.maze: List[List[int]] = []
-        self.path: str = ""
+        self.path_str: str = ""
+        self.path: List[Tuple[int, int]] = []
         self.logo: Set[Tuple[int, int]] = set()
 
     @classmethod
@@ -322,7 +323,7 @@ class MazeGenerator:
             file.write("\n")
             file.write(f"{self.entry_point[0]},{self.entry_point[1]}\n")
             file.write(f"{self.exit_point[0]},{self.exit_point[1]}\n")
-            file.write(self.path)
+            file.write(self.path_str)
 
     def check_walls(self, point: Tuple[int, int], dir: PathEnumerate) -> bool:
         """Return whether a wall exists in a given cardinal direction.
@@ -344,14 +345,15 @@ class MazeGenerator:
 
         path: Dict[Tuple[int, int], int] = self.get_general_path()
 
-        path_str, f = self.find_quickest_path(path, self.entry_point)
-        self.path = path_str
+        path_str, _ = self.find_quickest_path(
+            path, self.entry_point)
+        self.path_str = path_str
 
     def find_quickest_path(
         self,
         path: Dict[Tuple[int, int], int],
         pos: Tuple[int, int],
-    ) -> Tuple[str, bool]:
+    ) -> Tuple[Tuple[int, int], str, bool]:
         """Recursively construct the shortest path string from ``pos``.
 
         The function expects a precomputed distance map ``path`` where
@@ -389,6 +391,7 @@ class MazeGenerator:
 
                 p, found = self.find_quickest_path(path, n_pos)
                 if found:
+                    self.path.append(n_pos)
                     return key.name + p, True
 
         return "", False
