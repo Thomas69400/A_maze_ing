@@ -348,6 +348,8 @@ class MazeGenerator:
         path_str, _ = self.find_quickest_path(
             path, self.entry_point)
         self.path_str = path_str
+        self.path.append(self.entry_point)
+        self.path.append(self.exit_point)
 
     def find_quickest_path(
         self,
