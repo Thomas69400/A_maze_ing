@@ -30,6 +30,9 @@ class PathEnumerate(Enum):
 
         Returns:
             The integer bit representing the opposing direction.
+
+        Raises:
+            ValueError: If the bit does not correspond to a valid direction.
         """
 
         if bit == PathEnumerate.N.value[0]:
@@ -46,6 +49,9 @@ class PathEnumerate(Enum):
 class MazeGenerator:
     """Maze generator using Wilson's algorithm for perfect mazes.
 
+    This class generates mazes using Wilson's algorithm and provides
+    utilities for maze resolution and file output.
+
     Attributes:
         width: Maze width (number of columns).
         height: Maze height (number of rows).
@@ -54,7 +60,9 @@ class MazeGenerator:
         perfect: If True, generate a perfect maze (no loops).
         output_file: Path to output file (not used by generator logic).
         maze: 2D grid storing cell bitmasks or hex chars after conversion.
-        path: Optional path string used for later output.
+        path_str: Optional path string used for later output.
+        path: List of coordinates representing the solution path.
+        logo: Set of coordinates reserved for the 42 logo.
     """
 
     dir: Dict[PathEnumerate, Tuple[int, int]] = {
@@ -78,8 +86,8 @@ class MazeGenerator:
         Args:
             width: Number of columns.
             height: Number of rows.
-            entry_point: (row, col) for entry.
-            exit_point: (row, col) for exit.
+            entry_point: (row, col) tuple for entry point.
+            exit_point: (row, col) tuple for exit point.
             perfect: Whether to generate a perfect maze.
             output_file: Output filename (for external use).
         """
@@ -95,7 +103,10 @@ class MazeGenerator:
         self.logo: Set[Tuple[int, int]] = set()
 
     @classmethod
-    def from_dict(cls, data: dict) -> "MazeGenerator":
+    def from_dict(
+            cls,
+            data: Dict[str, Union[int, bool, str, List]]
+    ) -> "MazeGenerator":
         """Create a MazeGenerator from a configuration dictionary.
 
         Args:
@@ -137,7 +148,7 @@ class MazeGenerator:
         """Check whether a point (row, col) is within maze bounds.
 
         Args:
-            point: (row, col) to check.
+            point: (row, col) tuple to check.
 
         Returns:
             True if point is inside the maze, False otherwise.
@@ -152,7 +163,8 @@ class MazeGenerator:
         """Initialize the maze grid and optionally generate paths.
 
         The maze grid is initialized with border bits. If self.perfect is True,
-        Wilson's algorithm is run to carve a perfect maze.
+        Wilson's algorithm is run to carve a perfect maze. Otherwise, random
+        walls are broken to add loops.
         """
 
         self.maze = [[15 for _ in range(self.width)]
@@ -160,7 +172,7 @@ class MazeGenerator:
 
         for row, height_row in enumerate(self.maze):
             for col, _ in enumerate(height_row):
-                mask = 0
+                mask: int = 0
                 if row == 0:
                     mask |= PathEnumerate.N.value[0]
                 if row == self.height - 1:
@@ -173,10 +185,19 @@ class MazeGenerator:
 
         self.place_42()
 
-        if self.perfect:
-            self.wilson()
+        self.wilson()
+
+        if not self.perfect:
+            self.break_wall()
 
     def place_42(self) -> None:
+        """Place a 42 logo in the center of the maze.
+
+        The logo is placed at the center of the maze if the maze is large
+        enough (at least 9x7 cells). If the entry or exit point overlaps
+        with the logo, the logo is not placed and an error message is printed.
+        """
+
         if not (self.width >= 9 and self.height >= 7):
             print("Error, can't place 42. Maze too small.")
             return
@@ -201,11 +222,61 @@ class MazeGenerator:
             print(
                 "Error, can't place 42 on maze : entry or exit is on logo.")
 
+    def break_wall(self) -> None:
+        """Break random walls in the maze to create loops.
+
+        Breaks approximately 1% of the walls in the maze (minimum 1 wall),
+        avoiding walls in the logo area. This is used when perfect=False
+        to introduce loops into the maze structure.
+        """
+
+        if self.width == 1 or self.height == 1:
+            return
+
+        wall_to_break: int = max(int((self.height * self.width) / 100), 1)
+        wall_break: int = 0
+        path: List[Tuple[int, int]] = []
+
+        for row, height in enumerate(self.maze):
+            for col, value in enumerate(height):
+                n: Tuple[int, int] = (row, col)
+                if n in self.logo or value == 0:
+                    continue
+                path.append(n)
+
+        while True:
+            if wall_break == wall_to_break:
+                break
+
+            p: Tuple[int, int] = choice(path)
+            dir_cpy: Dict[PathEnumerate, Tuple[int, int]] = {
+                k: v for k, v in self.dir.items()}
+
+            for _ in range(4):
+                k, v = choice(list(dir_cpy.items()))
+                n_p: Tuple[int, int] = (p[0] + v[0], p[1] + v[1])
+                dir_cpy.pop(k)
+
+                if n_p in self.logo:
+                    continue
+
+                if (self.check_bounds(n_p) and
+                        self.check_walls(p, k)):
+                    self.maze[p[0]][p[1]] ^= k.value[0]
+                    self.maze[n_p[0]][n_p[1]] ^= (
+                        PathEnumerate.oppose_bit(k.value[0]))
+                    wall_break += 1
+                    break
+
+            path.remove(p)
+
     def wilson(self) -> None:
         """Generate a perfect maze using Wilson's algorithm.
 
-        Maintains sets of visited and unvisited cells and performs loop-erased
-        random walks until all cells are visited.
+        Maintains sets of visited and unvisited cells and performs
+        loop-erased random walks until all cells are visited. The algorithm
+        is guaranteed to produce a perfect maze (no loops, all cells
+        reachable).
         """
 
         unvisited: Set[Tuple[int, int]] = set()
@@ -244,8 +315,11 @@ class MazeGenerator:
         path: List[Tuple[int, int]],
         visited: Set[Tuple[int, int]]
     ) -> Tuple[List[Tuple[int, int]], List[PathEnumerate]]:
-        """Perform a loop-erased random walk from start until it
-        reaches visited.
+        """Perform a loop-erased random walk from start until visited.
+
+        Performs a random walk starting from the given cell, erasing loops
+        whenever the path revisits a cell. The walk terminates when it
+        reaches a cell in the visited set.
 
         Args:
             start: Starting cell (row, col).
@@ -253,9 +327,9 @@ class MazeGenerator:
             visited: Set of visited cells that terminate the walk.
 
         Returns:
-            A tuple (path, walls) where path is the walked sequence of cells
-            (with loops erased) and walls is the sequence of directions
-            (PathEnumerate) taken between successive cells.
+            A tuple (path, walls) where path is the walked sequence of
+            cells (with loops erased) and walls is the sequence of
+            directions (PathEnumerate) taken between successive cells.
         """
 
         walls: List[PathEnumerate] = []
@@ -271,8 +345,8 @@ class MazeGenerator:
             if not neighbors:
                 return path, walls
 
-            random_value: Tuple[PathEnumerate,
-                                Tuple[int, int]] = choice(neighbors)
+            random_value: Tuple[PathEnumerate, Tuple[int, int]] = (
+                choice(neighbors))
             path_enum: PathEnumerate = random_value[0]
             random_point: Tuple[int, int] = random_value[1]
             start = random_point
@@ -289,8 +363,13 @@ class MazeGenerator:
 
     @staticmethod
     def convert_to_hex(maze: List[List[int]]) -> None:
-        """Convert integer cell bitmasks to hexadecimal character
-        representation.
+        """Convert integer cell bitmasks to hexadecimal characters.
+
+        Converts each integer value in the maze to its hexadecimal string
+        representation (0-F). Modifies the maze in-place.
+
+        Args:
+            maze: 2D list of integers representing maze cells.
         """
 
         hex_chars: str = "0123456789ABCDEF"
@@ -304,7 +383,7 @@ class MazeGenerator:
         The maze cells are converted to hexadecimal characters and written
         row-by-row. After the maze grid, this writes a blank line, then
         the entry and exit coordinates on separate lines and finally the
-        optional path string stored in :attr:`path`.
+        optional path string stored in :attr:`path_str`.
 
         Raises:
             OSError: If the output file cannot be written.
@@ -321,17 +400,26 @@ class MazeGenerator:
                 file.write("\n")
 
             file.write("\n")
-            file.write(f"{self.entry_point[0]},{self.entry_point[1]}\n")
-            file.write(f"{self.exit_point[0]},{self.exit_point[1]}\n")
+            file.write(
+                f"{self.entry_point[0]},{self.entry_point[1]}\n")
+            file.write(
+                f"{self.exit_point[0]},{self.exit_point[1]}\n")
             file.write(self.path_str)
 
-    def check_walls(self, point: Tuple[int, int], dir: PathEnumerate) -> bool:
-        """Return whether a wall exists in a given cardinal direction.
+    def check_walls(
+        self,
+        point: Tuple[int, int],
+        dir: PathEnumerate
+    ) -> bool:
+        """Check whether a wall exists in a given cardinal direction.
+
+        Inspects the bitmask of a maze cell to determine if a wall exists
+        in the specified direction.
 
         Args:
             point: A (row, col) tuple indicating the cell to inspect.
-            dir: A :class:`PathEnumerate` value indicating which
-                direction to test (N, E, S, W).
+            dir: A PathEnumerate value indicating which direction to test
+                (N, E, S, W).
 
         Returns:
             True if the wall/flag bit is set for that direction, False
@@ -341,9 +429,15 @@ class MazeGenerator:
         return bool((self.maze[point[0]][point[1]] >> dir.value[1]) & 1)
 
     def resolve_maze(self) -> None:
-        """Resolve the generated maze then put the path in self"""
+        """Resolve the generated maze and store the solution path.
 
-        path: Dict[Tuple[int, int], int] = self.get_general_path()
+        Computes the shortest path from the entry point to the exit point
+        using BFS and stores the solution as a string of direction names
+        in :attr:`path_str` and as a list of coordinates in :attr:`path`.
+        """
+
+        path: Dict[Tuple[int, int], Optional[int]] = (
+            self.get_general_path())
 
         path_str, _ = self.find_quickest_path(
             path, self.entry_point)
@@ -353,10 +447,10 @@ class MazeGenerator:
 
     def find_quickest_path(
         self,
-        path: Dict[Tuple[int, int], int],
+        path: Dict[Tuple[int, int], Optional[int]],
         pos: Tuple[int, int],
-    ) -> Tuple[Tuple[int, int], str, bool]:
-        """Recursively construct the shortest path string from ``pos``.
+    ) -> Tuple[str, bool]:
+        """Recursively construct the shortest path string from pos.
 
         The function expects a precomputed distance map ``path`` where
         keys are cell coordinates and values are distances from the
@@ -398,16 +492,18 @@ class MazeGenerator:
 
         return "", False
 
-    def get_general_path(self) -> Dict[Tuple[int, int], int]:
+    def get_general_path(
+        self
+    ) -> Dict[Tuple[int, int], Optional[int]]:
         """Compute a breadth-first distance map from the entry point.
 
-        This function performs a BFS starting at :attr:`entry_point` and
-        returns a mapping of cell coordinates to their distance (in
-        steps) from the entry. Cells that are not reachable will retain
-        a value of ``None``.
+        Performs a BFS starting at :attr:`entry_point` and returns a
+        mapping of cell coordinates to their distance (in steps) from the
+        entry. Cells that are not reachable will have a value of ``None``.
 
         Returns:
-            A dictionary mapping (row, col) tuples to integer distances.
+            A dictionary mapping (row, col) tuples to integer distances
+            or None if unreachable.
         """
 
         q_front: List[Tuple[int, int]] = [self.entry_point]

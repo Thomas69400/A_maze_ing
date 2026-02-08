@@ -1,28 +1,30 @@
-from __future__ import annotations
-"""
-parsing_validator.py
-
-Pydantic model used to validate maze parsing results.
+"""Parsing validator for maze configuration.
 
 This module defines ParsingValidator which ensures the maze dimensions,
 entry and exit coordinates, and perfection flag meet expected constraints.
 All validators include English docstrings and precise type annotations.
 """
 
-from typing import Tuple, Optional
-from pydantic import (BaseModel, field_validator,
-                      ValidationInfo)
+from __future__ import annotations
+from typing import Tuple, Optional, Type
+from pydantic import BaseModel, field_validator, ValidationInfo
 
 
 class ParsingValidator(BaseModel):
-    """Validate parsed maze data.
+    """Validate parsed maze configuration data.
+
+    This Pydantic model validates maze configuration by ensuring that
+    all required fields meet their respective constraints. It performs
+    cross-field validation to guarantee consistency between dimensions
+    and entry/exit points.
 
     Attributes:
-        width: Maze width in cells (positive integer).
-        height: Maze height in cells (positive integer).
-        entry_point: Coordinates (x, y) of the maze entry.
-        exit_point: Coordinates (x, y) of the maze exit.
+        width: Maze width in cells (must be positive).
+        height: Maze height in cells (must be positive).
+        entry_point: Coordinates (row, col) of the maze entry point.
+        exit_point: Coordinates (row, col) of the maze exit point.
         perfect: Whether the maze is perfect (no loops).
+        output_file: Path to the output file for maze data.
     """
 
     width: int
@@ -33,11 +35,21 @@ class ParsingValidator(BaseModel):
     output_file: str
 
     @field_validator("width", "height")
-    def check_positive(cls: type[ParsingValidator], v: int) -> int:
-        """Ensure width and height are positive integers.
+    @classmethod
+    def check_positive(cls: Type[ParsingValidator], v: int) -> int:
+        """Validate that width and height are positive integers.
+
+        Ensures maze dimensions are strictly positive values greater
+        than zero.
+
+        Args:
+            v: The value to validate (width or height).
+
+        Returns:
+            The validated positive integer.
 
         Raises:
-            ValueError: If the value is not a positive integer.
+            ValueError: If the value is not strictly positive.
         """
 
         if v <= 0:
@@ -45,11 +57,21 @@ class ParsingValidator(BaseModel):
         return v
 
     @field_validator("entry_point", "exit_point")
+    @classmethod
     def check_non_negative_coordinates(
-        cls: type[ParsingValidator],
+        cls: Type[ParsingValidator],
         v: Tuple[int, int],
     ) -> Tuple[int, int]:
-        """Ensure coordinates are non-negative.
+        """Validate that coordinates are non-negative integers.
+
+        Ensures both row and column coordinates are not negative,
+        allowing (0, 0) as the minimum valid coordinate.
+
+        Args:
+            v: Coordinate tuple (row, col) to validate.
+
+        Returns:
+            The validated coordinate tuple.
 
         Raises:
             ValueError: If any coordinate is negative.
@@ -60,35 +82,57 @@ class ParsingValidator(BaseModel):
         return v
 
     @field_validator("exit_point")
+    @classmethod
     def check_different_points(
-        cls: type[ParsingValidator],
+        cls: Type[ParsingValidator],
         v: Tuple[int, int],
         values: ValidationInfo,
     ) -> Tuple[int, int]:
-        """Ensure entry and exit points are different.
+        """Validate that entry and exit points are different.
 
-        Uses ValidationInfo to access other field values.
+        Ensures the exit point differs from the entry point to create
+        a valid maze with distinct start and end locations.
+        Uses ValidationInfo to access previously validated fields.
+
+        Args:
+            v: The exit_point coordinate tuple to validate.
+            values: ValidationInfo object containing other field values.
+
+        Returns:
+            The validated exit_point coordinate tuple.
 
         Raises:
-            ValueError: If entry_point equals exit_point.
+            ValueError: If exit_point equals entry_point.
         """
 
-        entry_point: Optional[Tuple[int, int]] = values.data.get("entry_point")
+        entry_point: Optional[Tuple[int, int]] = (
+            values.data.get("entry_point"))
         if entry_point and v == entry_point:
-            raise ValueError("ENTRY and EXIT points must be different")
+            raise ValueError(
+                "ENTRY and EXIT points must be different")
         return v
 
     @field_validator("entry_point", "exit_point")
+    @classmethod
     def check_within_bounds(
-        cls: type[ParsingValidator],
+        cls: Type[ParsingValidator],
         v: Tuple[int, int],
         values: ValidationInfo,
     ) -> Tuple[int, int]:
-        """Ensure coordinates are within maze bounds.
+        """Validate that coordinates are within maze bounds.
+
+        Ensures both entry and exit points have coordinates that fall
+        within the valid range [0, width) and [0, height) respectively.
+
+        Args:
+            v: Coordinate tuple (row, col) to validate.
+            values: ValidationInfo object containing width and height.
+
+        Returns:
+            The validated coordinate tuple.
 
         Raises:
-            ValueError: If any coordinate lies outside [0, width) or
-            [0, height).
+            ValueError: If any coordinate lies outside valid bounds.
         """
 
         width: Optional[int] = values.data.get("width")
@@ -96,15 +140,26 @@ class ParsingValidator(BaseModel):
         if width is None or height is None:
             return v
         if v[1] >= width or v[0] >= height:
-            raise ValueError("coordinates must be within maze bounds")
+            raise ValueError(
+                "coordinates must be within maze bounds")
         return v
 
     @field_validator("output_file")
+    @classmethod
     def check_output_file(
-        cls: type[ParsingValidator],
+        cls: Type[ParsingValidator],
         v: str,
     ) -> str:
-        """Ensure output file path is not empty.
+        """Validate that output file path is a non-empty string.
+
+        Ensures the output file path is provided and not empty to
+        prevent errors during file writing operations.
+
+        Args:
+            v: The output file path string to validate.
+
+        Returns:
+            The validated non-empty output file path.
 
         Raises:
             ValueError: If output_file is an empty string.

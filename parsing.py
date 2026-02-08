@@ -1,12 +1,13 @@
 """Parse maze configuration from a 'config.txt' file.
 
 Provides:
-- get_entry_or_exit: parse a coordinate string "x,y" -> (x, y)
-- transform_data: convert raw string values to proper types
-- get_config: read and parse the config file into a typed dict
+    get_entry_or_exit: Parse a coordinate string "x,y" -> (x, y).
+    transform_data: Convert raw string values to proper types.
+    get_config: Read and parse the config file into a typed dict.
 """
 
-from typing import Any, Dict, List, Tuple, Optional
+from typing import Any, Dict, List, Optional, Tuple
+
 from parsing_validator import ParsingValidator
 
 
@@ -23,7 +24,6 @@ def get_entry_or_exit(path: str) -> Tuple[int, int]:
         ValueError: If the coordinate does not contain exactly two parts.
         TypeError: If either coordinate part is not an integer string.
     """
-
     parts: List[str] = [p.strip() for p in path.split(",")]
     if len(parts) != 2:
         raise ValueError(
@@ -38,14 +38,16 @@ def transform_data(data: Dict[str, Any]) -> None:
     """Transform string values in the config dict to proper Python types.
 
     This mutates the provided dictionary in place converting:
-    - ENTRY and EXIT from 'x,y' strings to (int, int) tuples
-    - WIDTH and HEIGHT to ints
-    - PERFECT to a boolean (True if value equals "true" ignoring case)
+        - ENTRY and EXIT from 'x,y' strings to (int, int) tuples
+        - WIDTH and HEIGHT to ints
+        - PERFECT to a boolean (True if value equals "true" ignoring case)
 
     Args:
         data: Configuration dictionary with raw string values.
-    """
 
+    Raises:
+        ValueError: If validation fails on the transformed data.
+    """
     data["ENTRY"] = get_entry_or_exit(str(data["ENTRY"]))
     data["EXIT"] = get_entry_or_exit(str(data["EXIT"]))
     data["WIDTH"] = int(data["WIDTH"])
@@ -78,17 +80,20 @@ def get_config(file_name: Optional[str] = None) -> Dict[str, Any]:
     The config file must contain lines in the form KEY=VALUE. Lines that
     start with '#' or are empty are ignored.
 
+    Args:
+        file_name: Path to the configuration file. Defaults to
+            "default_config.txt" if None.
+
     Returns:
         A dictionary with keys ENTRY, EXIT, WIDTH, HEIGHT, PERFECT (and any
         other keys present) with converted types.
 
     Raises:
-        FileNotFoundError: If 'config.txt' does not exist.
+        FileNotFoundError: If the config file does not exist.
         PermissionError: If the file cannot be opened due to permissions.
         IndexError: If a non-comment line does not contain a '=' separator.
         ValueError: If integer conversion for WIDTH/HEIGHT fails.
     """
-
     if file_name is None:
         file_name = "default_config.txt"
     with open(file_name, "r", encoding="utf-8") as fd:
@@ -102,6 +107,8 @@ def get_config(file_name: Optional[str] = None) -> Dict[str, Any]:
             if "=" not in line_stripped:
                 raise IndexError(
                     f"get_config can't access to value: {line_stripped}")
+            key: str
+            val: str
             key, val = line_stripped.split("=", 1)
             data[key.strip()] = val.strip()
 
