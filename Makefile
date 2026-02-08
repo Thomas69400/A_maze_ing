@@ -1,10 +1,12 @@
 PYTHON := python3
-PIP := pip
+PIP := $(PYTHON) -m pip
 MAIN_SCRIPT := main.py
 PROJECT_NAME := mazegen
+VENV := .venv
 
 help:
 	@echo "Available commands:"
+	@echo "  make setup        - Create virtual environment and install build tools"
 	@echo "  make install      - Install project dependencies"
 	@echo "  make run          - Execute the main script"
 	@echo "  make debug        - Run the main script in debug mode (pdb)"
@@ -15,8 +17,11 @@ help:
 	@echo "  make help         - Show this help message"
 
 install:
-	$(PIP) install --upgrade pip setuptools wheel
-	$(PIP) install -r dependencies/requirements.txt
+	$(PIP) install --upgrade pip setuptools wheel || true
+	# Try installing requirements from dependencies/, but don't abort on failure
+	$(PIP) install -r dependencies/requirements.txt || echo "Warning: some packages from dependencies/requirements.txt failed to install"
+	# Install any local wheels present (no-op if none)
+	$(PIP) install dependencies/*.whl || echo "No local .whl files found in dependencies/"
 
 run:
 	$(PYTHON) $(MAIN_SCRIPT)
@@ -43,9 +48,25 @@ lint-strict:
 	mypy . --strict --exclude='(build|dist|venv|env|test_vm|dependencies|src)'
 
 build: clean
-	$(PYTHON) -m pip install --upgrade build setuptools wheel
+	# Ensure pip (bootstrap if necessary) and install build tools, tolerant to missing pip
+	$(PYTHON) -m pip install --upgrade build setuptools wheel 2>/dev/null || { \
+		echo "pip not available for $(PYTHON), attempting to bootstrap..."; \
+		$(PYTHON) -m ensurepip --upgrade >/dev/null 2>&1 || curl -sS https://bootstrap.pypa.io/get-pip.py | $(PYTHON); \
+		$(PYTHON) -m pip install --upgrade build setuptools wheel; \
+	}
 	$(PYTHON) -m build
+
+setup:
+	@rm -rf $(VENV) 2>/dev/null || true
+	# Create venv with pip available; if pip still missing, bootstrap it
+	$(PYTHON) -m venv $(VENV)
+	$(VENV)/bin/python -m pip --version >/dev/null 2>&1 || curl -sS https://bootstrap.pypa.io/get-pip.py | $(VENV)/bin/python
+	$(VENV)/bin/pip install --upgrade pip setuptools wheel build
+	@echo ""
+	@echo "Virtual environment created in $(VENV)/"
+	@echo "To activate it, run:"
+	@echo "  source $(VENV)/bin/activate"
 
 .DEFAULT_GOAL := help
 
-.PHONY: install run debug clean lint lint-strict build help
+.PHONY: install run debug clean lint lint-strict build help setup

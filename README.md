@@ -15,19 +15,27 @@ Quick start (development)
   2. Activate the virtual environment:
      source .venv/bin/activate
      (Or use your shell's equivalent.)
-  3. Build the package (wheel + sdist):
+  3. **Install project dependencies (including mlx):**
+     make install
+     (Installs dependencies from requirements.txt)
+  4. Build the package (wheel + sdist):
      make build
      (Equivalent to: python -m build)
-  4. Install the built wheel:
-     make install
-     (Installs the wheel from dist/, equivalent to pip install dist/mazegen-<version>-py3-none-any.whl)
-  5. Cleanup build artifacts:
+  5. Run the project:
+     make run
+  6. Cleanup build artifacts:
      make clean
 
   **Common Makefile targets (for reference)**
+  - make setup   : create .venv and install build dependencies
+  - make install : install project dependencies from requirements.txt
   - make build   : run python -m build to produce dist/
-  - make install : pip install the wheel from dist/
+  - make run     : execute main.py
   - make clean   : remove build/, dist/, *.egg-info
+
+**Dependencies note:**
+- This project requires the `mlx` module for graphical display.
+- The `mlx` library is provided as a `.whl` file in the `dependencies/` folder and is installed automatically via `make install`.
 
 - **Manual commands (fallback)**
     1. Create and activate a virtual environment:
