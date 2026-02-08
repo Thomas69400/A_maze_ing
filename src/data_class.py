@@ -5,7 +5,7 @@ the MLX window and maze image rendering state.
 """
 
 from typing import Any, Optional
-from maze_generator import MazeGenerator
+from src.maze_generator import MazeGenerator
 
 from mlx import Mlx
 

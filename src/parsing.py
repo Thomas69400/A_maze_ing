@@ -8,7 +8,7 @@ Provides:
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from parsing_validator import ParsingValidator
+from src.parsing_validator import ParsingValidator
 
 
 def get_entry_or_exit(path: str) -> Tuple[int, int]:

@@ -7,8 +7,8 @@ using the MLX graphics library with interactive controls.
 from functools import wraps
 from typing import Any, Callable, List, Optional, Tuple
 
-from data_class import XVar
-from maze_generator import MazeGenerator
+from src.data_class import XVar
+from src.maze_generator import MazeGenerator
 from mlx import Mlx
 
 
@@ -72,22 +72,34 @@ class MazeRepresentation:
         self.xvar.mlx = Mlx()
         self.xvar.mlx_ptr = self.xvar.mlx.mlx_init()
 
+    def _mlx(self) -> Mlx:
+        """Return a non-None MLX instance or raise if not initialized.
+
+        This helper narrows the Optional[Mlx] to Mlx for callers so mypy
+        can safely access MLX methods without union-attr errors.
+        """
+        mlx = self.xvar.mlx
+        if mlx is None:
+            raise RuntimeError("MLX is not initialized")
+        return mlx
+
     def init_window(self) -> None:
         """Initialize the MLX window.
 
         Raises:
             Exception: If window creation fails.
         """
-        self.xvar.win_ptr = self.xvar.mlx.mlx_new_window(
+        mlx = self._mlx()
+        self.xvar.win_ptr = mlx.mlx_new_window(
             self.xvar.mlx_ptr, self.xvar.win_w, self.xvar.win_h,
             "A-Maze-Ing")
-        self.xvar.mlx.mlx_clear_window(self.xvar.mlx_ptr, self.xvar.win_ptr)
+        mlx.mlx_clear_window(self.xvar.mlx_ptr, self.xvar.win_ptr)
         if not self.xvar.win_ptr:
             raise Exception("Can't create main window")
 
     @staticmethod
     def put_img_to_window(
-            func: Callable[..., Any]) -> Callable[..., Any]:
+            func: Callable[..., None]) -> Callable[..., None]:
         """Decorator to put image to window after function execution.
 
         Args:
@@ -100,7 +112,8 @@ class MazeRepresentation:
         def wrapper(self: "MazeRepresentation", *args: Any,
                     **kwargs: Any) -> None:
             func(self, *args, **kwargs)
-            self.xvar.mlx.mlx_put_image_to_window(
+            mlx = self._mlx()
+            mlx.mlx_put_image_to_window(
                 self.xvar.mlx_ptr,
                 self.xvar.win_ptr,
                 self.xvar.img_ptr,
@@ -112,7 +125,7 @@ class MazeRepresentation:
 
     @staticmethod
     def clear_window(
-            func: Callable[..., Any]) -> Callable[..., Any]:
+            func: Callable[..., None]) -> Callable[..., None]:
         """Decorator to clear window before function execution.
 
         Args:
@@ -123,15 +136,16 @@ class MazeRepresentation:
         """
         @wraps(func)
         def wrapper(self: "MazeRepresentation", *args: Any,
-                    **kwargs: Any) -> Any:
-            self.xvar.mlx.mlx_clear_window(self.xvar.mlx_ptr,
-                                           self.xvar.win_ptr)
-            return func(self, *args, **kwargs)
+                    **kwargs: Any) -> None:
+            mlx = self._mlx()
+            mlx.mlx_clear_window(self.xvar.mlx_ptr, self.xvar.win_ptr)
+            func(self, *args, **kwargs)
+            return
         return wrapper
 
     @staticmethod
     def regenerate_img(
-            func: Callable[..., Any]) -> Callable[..., Any]:
+            func: Callable[..., None]) -> Callable[..., None]:
         """Decorator to regenerate image before function execution.
 
         Args:
@@ -142,9 +156,9 @@ class MazeRepresentation:
         """
         @wraps(func)
         def wrapper(self: "MazeRepresentation", *args: Any,
-                    **kwargs: Any) -> Any:
-            self.xvar.mlx.mlx_destroy_image(
-                self.xvar.mlx_ptr, self.xvar.img_ptr)
+                    **kwargs: Any) -> None:
+            mlx = self._mlx()
+            mlx.mlx_destroy_image(self.xvar.mlx_ptr, self.xvar.img_ptr)
             self.generate_img()
             self.get_data_utils()
             try:
@@ -152,7 +166,8 @@ class MazeRepresentation:
                 mv[:] = b'\x00' * len(mv)
             except Exception:
                 pass
-            return func(self, *args, **kwargs)
+            func(self, *args, **kwargs)
+            return
         return wrapper
 
     def close_window(self, param: Optional[Any] = None) -> None:
@@ -161,7 +176,8 @@ class MazeRepresentation:
         Args:
             param: Optional parameter for event callback.
         """
-        self.xvar.mlx.mlx_loop_exit(self.xvar.mlx_ptr)
+        mlx = self._mlx()
+        mlx.mlx_loop_exit(self.xvar.mlx_ptr)
 
     def generate_wall_north(self, pixel: int) -> None:
         """Generate the north wall of a maze cell.
@@ -250,7 +266,8 @@ class MazeRepresentation:
                 f"Invalid image dimensions: {self.xvar.image_w}x"
                 f"{self.xvar.image_h}")
 
-        self.xvar.img_ptr = self.xvar.mlx.mlx_new_image(
+        mlx = self._mlx()
+        self.xvar.img_ptr = mlx.mlx_new_image(
             self.xvar.mlx_ptr,
             self.xvar.image_w,
             self.xvar.image_h)
@@ -359,19 +376,22 @@ class MazeRepresentation:
                     self.logo_printed = 1
                 return 0
             if key == 53:  # 5
-                self.xvar.mlx.mlx_loop_exit(self.xvar.mlx_ptr)
+                self._mlx().mlx_loop_exit(self.xvar.mlx_ptr)
                 return 0
         else:
             if key == 52:  # 4
-                self.xvar.mlx.mlx_loop_exit(self.xvar.mlx_ptr)
+                self._mlx().mlx_loop_exit(self.xvar.mlx_ptr)
                 return 0
+
+        return 0
 
     def print_strings(self) -> None:
         """Print UI strings on the window."""
         bottom_string: int = 120
         if len(self.maze_gen.logo) == 0:
             bottom_string -= 20
-        self.xvar.mlx.mlx_string_put(
+        mlx = self._mlx()
+        mlx.mlx_string_put(
             self.xvar.mlx_ptr,
             self.xvar.win_ptr,
             0,
@@ -380,7 +400,7 @@ class MazeRepresentation:
             "=== A-Maze-ing ==="
         )
         bottom_string -= 20
-        self.xvar.mlx.mlx_string_put(
+        mlx.mlx_string_put(
             self.xvar.mlx_ptr,
             self.xvar.win_ptr,
             0,
@@ -389,7 +409,7 @@ class MazeRepresentation:
             "1. Re-generate a new maze"
         )
         bottom_string -= 20
-        self.xvar.mlx.mlx_string_put(
+        mlx.mlx_string_put(
             self.xvar.mlx_ptr,
             self.xvar.win_ptr,
             0,
@@ -398,7 +418,7 @@ class MazeRepresentation:
             "2. Show/Hide path from entry to exit"
         )
         bottom_string -= 20
-        self.xvar.mlx.mlx_string_put(
+        mlx.mlx_string_put(
             self.xvar.mlx_ptr,
             self.xvar.win_ptr,
             0,
@@ -408,7 +428,7 @@ class MazeRepresentation:
         )
         bottom_string -= 20
         if len(self.maze_gen.logo) > 0:
-            self.xvar.mlx.mlx_string_put(
+            mlx.mlx_string_put(
                 self.xvar.mlx_ptr,
                 self.xvar.win_ptr,
                 0,
@@ -417,7 +437,7 @@ class MazeRepresentation:
                 "4. Change 42 color"
             )
             bottom_string -= 20
-        self.xvar.mlx.mlx_string_put(
+        mlx.mlx_string_put(
             self.xvar.mlx_ptr,
             self.xvar.win_ptr,
             0,
@@ -432,11 +452,11 @@ class MazeRepresentation:
         Raises:
             Exception: If maze_template is None.
         """
+        mlx = self._mlx()
         self.xvar.maze_template, \
             self.xvar.bpp, \
             self.xvar.line_len, \
-            _ = self.xvar.mlx.mlx_get_data_addr(
-                self.xvar.img_ptr)
+            _ = mlx.mlx_get_data_addr(self.xvar.img_ptr)
 
         self.xvar.bpp //= 8
         if self.xvar.maze_template is None:

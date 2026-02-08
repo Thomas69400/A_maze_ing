@@ -5,7 +5,7 @@ Wilson's algorithm. All public functions and classes use Google-style
 docstrings and explicit typing.
 """
 
-from typing import Tuple, List, Union, Dict, Set, Optional
+from typing import Tuple, List, Dict, Set, Optional, Any, cast
 from random import choice
 from enum import Enum
 
@@ -16,10 +16,10 @@ class PathEnumerate(Enum):
     Values are chosen so that opposing directions have distinct bit masks.
     """
 
-    N: Tuple[int, int] = (1, 0)
-    E: Tuple[int, int] = (2, 1)
-    S: Tuple[int, int] = (4, 2)
-    W: Tuple[int, int] = (8, 3)
+    N = (1, 0)
+    E = (2, 1)
+    S = (4, 2)
+    W = (8, 3)
 
     @staticmethod
     def oppose_bit(bit: int) -> int:
@@ -105,7 +105,7 @@ class MazeGenerator:
     @classmethod
     def from_dict(
             cls,
-            data: Dict[str, Union[int, bool, str, List]]
+            data: Dict[str, Any]
     ) -> "MazeGenerator":
         """Create a MazeGenerator from a configuration dictionary.
 
@@ -116,14 +116,29 @@ class MazeGenerator:
         Returns:
             An initialized MazeGenerator instance.
         """
+        width: int = int(cast(int, data["WIDTH"]))
+        height: int = int(cast(int, data["HEIGHT"]))
+
+        entry_raw = cast(List[int], data["ENTRY"])
+        if len(entry_raw) != 2:
+            raise ValueError("ENTRY must be a 2-element sequence")
+        entry_point: Tuple[int, int] = (int(entry_raw[0]), int(entry_raw[1]))
+
+        exit_raw = cast(List[int], data["EXIT"])
+        if len(exit_raw) != 2:
+            raise ValueError("EXIT must be a 2-element sequence")
+        exit_point: Tuple[int, int] = (int(exit_raw[0]), int(exit_raw[1]))
+
+        perfect: bool = bool(data["PERFECT"])
+        output_file: str = str(cast(str, data["OUTPUT_FILE"]))
 
         return cls(
-            width=data["WIDTH"],
-            height=data["HEIGHT"],
-            entry_point=tuple(data["ENTRY"]),
-            exit_point=tuple(data["EXIT"]),
-            perfect=bool(data["PERFECT"]),
-            output_file=data["OUTPUT_FILE"],
+            width=width,
+            height=height,
+            entry_point=entry_point,
+            exit_point=exit_point,
+            perfect=perfect,
+            output_file=output_file,
         )
 
     def get_maze_config(self) -> str:
@@ -287,8 +302,8 @@ class MazeGenerator:
                 unvisited.add((i, j))
 
         unvisited.remove(self.entry_point)
-        for pos in self.logo:
-            unvisited.remove(pos)
+        for logo_pos in self.logo:
+            unvisited.remove(logo_pos)
 
         while unvisited:
             start: Tuple[int, int] = choice(list(unvisited))
@@ -362,20 +377,26 @@ class MazeGenerator:
                     return path, walls
 
     @staticmethod
-    def convert_to_hex(maze: List[List[int]]) -> None:
+    def convert_to_hex(maze: List[List[int]]) -> List[List[str]]:
         """Convert integer cell bitmasks to hexadecimal characters.
 
         Converts each integer value in the maze to its hexadecimal string
-        representation (0-F). Modifies the maze in-place.
+        representation (0-F). Returns a new maze list of strings.
 
         Args:
             maze: 2D list of integers representing maze cells.
-        """
 
+        Returns:
+            A 2D list of strings representing the hex maze.
+        """
         hex_chars: str = "0123456789ABCDEF"
+        hex_maze: List[List[str]] = []
         for row, height_row in enumerate(maze):
+            hex_row: List[str] = []
             for col, case in enumerate(height_row):
-                maze[row][col] = hex_chars[case]
+                hex_row.append(hex_chars[case])
+            hex_maze.append(hex_row)
+        return hex_maze
 
     def set_maze_to_file(self) -> None:
         """Write the maze representation and metadata to the output file.
@@ -388,13 +409,12 @@ class MazeGenerator:
         Raises:
             OSError: If the output file cannot be written.
         """
-
-        maze_file: List[List[Union[str, int]]] = []
+        maze_file: List[List[int]] = []
         for row, height in enumerate(self.maze):
             maze_file.append(height.copy())
-        self.convert_to_hex(maze_file)
+        hex_maze: List[List[str]] = self.convert_to_hex(maze_file)
         with open(self.output_file, "w", encoding="utf-8") as file:
-            for height_row in maze_file:
+            for height_row in hex_maze:
                 for case in height_row:
                     file.write(case)
                 file.write("\n")
@@ -459,7 +479,7 @@ class MazeGenerator:
         direction names (e.g. 'NESW').
 
         Args:
-            path: Mapping from cell coordinate to integer distance.
+            path: Mapping from cell coordinate to integer distance or None.
             pos: Current cell coordinate to expand from.
 
         Returns:
@@ -472,14 +492,19 @@ class MazeGenerator:
         if pos == self.exit_point:
             return "", True
 
+        current_dist = path.get(pos)
+        if current_dist is None:
+            return "", False
+
         for key, value in self.dir.items():
             n_pos: Tuple[int, int] = (pos[0] + value[0], pos[1] + value[1])
 
+            neigh_dist = path.get(n_pos)
             if (
                 not self.check_walls(pos, key)
                 and self.check_bounds(n_pos)
-                and path.get(n_pos) == path.get(pos, -1) + 1
-                and path.get(n_pos) is not None
+                and neigh_dist is not None
+                and neigh_dist == (current_dist + 1)
             ):
 
                 if n_pos == self.exit_point:
@@ -517,19 +542,22 @@ class MazeGenerator:
 
         while q_front:
             start: Tuple[int, int] = q_front[0]
+            start_dist = path.get(start)
+            if start_dist is None:
+                q_front.pop(0)
+                continue
+
             for key, value in self.dir.items():
                 n_point: Tuple[int, int] = (
                     start[0] + value[0], start[1] + value[1]
                 )
-                if (
-                    self.check_bounds(n_point)
-                    and not self.check_walls(start, key)
-                    and (
-                        path[n_point] is None
-                        or path[n_point] + 1 < path[start]
-                    )
-                ):
-                    path[n_point] = path[start] + 1
+                if not (self.check_bounds(n_point)
+                        and not self.check_walls(start, key)):
+                    continue
+
+                neigh_dist = path.get(n_point)
+                if neigh_dist is None or (neigh_dist > (start_dist + 1)):
+                    path[n_point] = start_dist + 1
                     q_back.append(n_point)
 
             if q_back:
