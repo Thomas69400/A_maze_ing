@@ -201,7 +201,6 @@ class MazeGenerator:
         self.place_42()
 
         self.wilson()
-
         if not self.perfect:
             self.break_wall()
 

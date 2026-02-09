@@ -1,12 +1,18 @@
-*This project has been created as part of the 42 curriculum by tchemin.*
+_This project has been created as part of the 42 curriculum by tchemin._
 
 # Description
------------
+
+---
+
 A-Maze-ing is a maze generator and solver with simple file output and an optional 42 logo insertion. The generator implements Wilson's algorithm to produce perfect mazes (no loops) and can optionally break walls to introduce loops. The project provides a reusable MazeGenerator implementation that can be packaged for pip installation.
 
 # Instructions
-------------
+
+---
+
 Quick start (development)
+
+#### IMPORTANT : Make sure you have **pip** installed
 
 - **Using the Makefile (recommended)**
   1. Create venv and install build tools:
@@ -15,6 +21,7 @@ Quick start (development)
   2. Activate the virtual environment:
      source .venv/bin/activate
      (Or use your shell's equivalent.)
+     (type: **deactivate** to get out of venv)
   3. **Install project dependencies (including mlx):**
      make install
      (Installs dependencies from requirements.txt)
@@ -23,42 +30,46 @@ Quick start (development)
      (Equivalent to: python -m build)
   5. Run the project:
      make run
-  6. Cleanup build artifacts:
+  6. Run the project with **your** config:
+     python3 main.py **<name_of_file_config>**
+  7. Cleanup build artifacts:
      make clean
 
   **Common Makefile targets (for reference)**
-  - make setup   : create .venv and install build dependencies
+  - make setup : create .venv and install build dependencies
   - make install : install project dependencies from requirements.txt
-  - make build   : run python -m build to produce dist/
-  - make run     : execute main.py
-  - make clean   : remove build/, dist/, *.egg-info
+  - make build : run python -m build to produce dist/
+  - make run : execute main.py
+  - make clean : remove build/, dist/, \*.egg-info
 
 **Dependencies note:**
+
 - This project requires the `mlx` module for graphical display.
 - The `mlx` library is provided as a `.whl` file in the `dependencies/` folder and is installed automatically via `make install`.
 
 - **Manual commands (fallback)**
-    1. Create and activate a virtual environment:
-    python3 -m venv .venv
-    source .venv/bin/activate
-    2. Install build tools and test dependencies:
-    pip install --upgrade pip build setuptools wheel
-    3. Build the package:
-    python -m build 
-    
-        **Produces dist/mazegen-<version>-py3-none-any.whl and a .tar.gz**
-    
-    4. Install the built wheel:
-    pip install dist/mazegen-1.0.0-py3-none-any.whl
+  1.  Create and activate a virtual environment:
+      python3 -m venv .venv
+      source .venv/bin/activate
+  2.  Install build tools and test dependencies:
+      pip install --upgrade pip build setuptools wheel
+  3.  Build the package:
+      python -m build
+
+          **Produces dist/mazegen-<version>-py3-none-any.whl and a .tar.gz**
+
+  4.  Install the built wheel:
+      pip install dist/mazegen-1.0.0-py3-none-any.whl
 
 **Single-file reusable module note:**
+
 - The evaluation requires the reusable module to be available as a single file installable by pip.
 - To produce a single-file module, copy the core module (src/maze_generator.py) into a single top-level module named mazegen.py at the repository root, then update pyproject.toml to use py_modules = ["mazegen"] before running python -m build. Example:
   [tool.setuptools]
   py_modules = ["mazegen"]
 
-Config file format (complete structure)
---------------------------------------
+## Config file format (complete structure)
+
 MazeGenerator expects a mapping with the following keys (JSON/TOML/Dict representation shown):
 
 ```JSON
@@ -74,6 +85,7 @@ JSON example:
 ```
 
 Fields:
+
 - **WIDTH**: integer (number of columns)
 - **HEIGHT**: integer (number of rows)
 - **ENTRY**: [row, col] (start cell)
@@ -82,15 +94,20 @@ Fields:
 - **OUTPUT_FILE**: string (path where the hex-map and metadata will be written)
 
 # Maze generation algorithm
--------------------------
+
+---
+
 Algorithm used: Wilson's algorithm (loop-erased random walks).
 Why Wilson's?
+
 - Produces uniform spanning trees (every perfect maze equally likely).
 - Guarantees a perfect maze (no cycles) and full connectivity.
 - Well-suited for educational and reproducible maze generation.
 
 # Reusable code and how to reuse it
----------------------------------
+
+---
+
 - Core reusable component: **MazeGenerator class** (src/maze_generator.py).
   Public APIs:
   - MazeGenerator.from_dict(data)
@@ -104,7 +121,9 @@ Why Wilson's?
 - The convert_to_hex and set_maze_to_file functions are small utilities that can be reused independently.
 
 # Build / packaging notes
------------------------
+
+---
+
 - Ensure pyproject.toml is configured for setuptools/build. Example minimal [build-system]:
   [build-system]
   requires = ["setuptools>=42", "wheel"]
@@ -118,10 +137,12 @@ Why Wilson's?
 - The evaluator will look for artifacts like:
   - mazegen-1.0.0-py3-none-any.whl
   - mazegen-1.0.0.tar.gz
-  in the dist/ directory.
+    in the dist/ directory.
 
 # Example usage
--------------
+
+---
+
 #### create a MazeGenerator from a JSON-like dict and build a maze file
 
 ```python
@@ -188,28 +209,35 @@ solution_path = m.path  # List of cells forming the solution
 ```
 
 # Resources
----------
+
+---
+
 - Wilson, D. B. (1996). Generating random spanning trees more quickly than the cover time.
 - Python packaging guide: https://packaging.python.org/
 - setuptools docs: https://setuptools.pypa.io/
 - mypy docs (module layout): https://mypy.readthedocs.io/
 
 # AI usage disclosure
--------------------
+
+---
+
 AI assistance was used to:
+
 - Draft README content and build instructions.
 - Propose Makefile and pyproject.toml adjustments.
-Human review: all code, configuration and final packaging decisions were validated and adjusted by the author.
+  Human review: all code, configuration and final packaging decisions were validated and adjusted by the author.
 
 # Team & project management
--------------------------
+
+---
+
 - **Author / role**: tchemin — design, implementation, packaging, documentation.
 
 - **Anticipated planning and evolution**:
   - **Week 1**: Research maze algorithms, prototype Wilson's algorithm, implement core MazeGenerator class, add solver.
   - **Week 2**: Add 42 logo feature, implement hex output format, packaging (pyproject.toml, Makefile), documentation, testing.
-  
-  *Evolution*: Initial plan focused only on generation; solving and hex output were added mid-project. Packaging took longer than expected due to single-file module requirement.
+
+  _Evolution_: Initial plan focused only on generation; solving and hex output were added mid-project. Packaging took longer than expected due to single-file module requirement.
 
 - **What worked well**:
   - Wilson's algorithm provided unbiased mazes and simple deterministic behavior for tests.
@@ -221,9 +249,11 @@ Human review: all code, configuration and final packaging decisions were validat
   - Implement visualization (ASCII or graphical) for debugging.
   - Consider adding multiple algorithm options (Kruskal, Prim) for comparison.
 
-- **Tools used**: Python 3.10+, setuptools, build, flake8, mypy, pytest, git.
+- **Tools used**: Python 3.10+, setuptools, build, flake8, mypy, git.
 
 # Contact / Repository
---------------------
+
+---
+
 Repository: https://github.com/Thomas69400/A_maze_ing
 Issues and PRs are welcome.

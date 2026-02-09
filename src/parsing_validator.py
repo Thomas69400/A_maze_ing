@@ -34,6 +34,28 @@ class ParsingValidator(BaseModel):
     perfect: bool
     output_file: str
 
+    @field_validator("perfect")
+    @classmethod
+    def check_perfect(cls: Type[ParsingValidator], v: bool) -> bool:
+        """Validate that the perfect field is a boolean.
+
+        Ensures the 'perfect' field is explicitly a boolean value,
+        preventing invalid types that could cause logic errors in maze
+        generation.
+
+        Args:
+            v: The value to validate for the perfect field.
+
+        Returns:
+            The validated boolean value.
+
+        Raises:
+            ValueError: If the value is not a boolean.
+        """
+        if v != "true" and v != "false" and not isinstance(v, bool):
+            raise ValueError("perfect must be a boolean")
+        return v
+
     @field_validator("width", "height")
     @classmethod
     def check_positive(cls: Type[ParsingValidator], v: int) -> int:
@@ -167,4 +189,26 @@ class ParsingValidator(BaseModel):
 
         if not v:
             raise ValueError("output_file must not be empty")
+        return v
+
+    @field_validator("height", "width")
+    @classmethod
+    def check_dimensions(cls: Type[ParsingValidator], v: int) -> int:
+        """Validate that dimensions are within reasonable limits.
+
+        Ensures maze dimensions do not exceed a maximum threshold to
+        prevent excessive memory usage or performance issues.
+
+        Args:
+            v: The dimension value (width or height) to validate.
+        Returns:
+            The validated dimension value.
+        Raises:
+            ValueError: If the dimension exceeds the maximum allowed size.
+        """
+
+        MAX_DIMENSION: int = 120
+        if v > MAX_DIMENSION:
+            raise ValueError(
+                f"dimensions must not exceed {MAX_DIMENSION}")
         return v

@@ -478,7 +478,7 @@ class MazeRepresentation:
         min_h: int = height * pixel_d + 150
         min_w: int = width * pixel_d + 50
 
-        win_h: int = max(min_h, 1000)
-        win_w: int = max(min_w, 1000)
+        win_h: int = max(min_h, 500)
+        win_w: int = max(min_w, 500)
 
         return win_h, win_w

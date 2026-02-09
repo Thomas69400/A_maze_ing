@@ -52,9 +52,7 @@ def transform_data(data: Dict[str, Any]) -> None:
     data["EXIT"] = get_entry_or_exit(str(data["EXIT"]))
     data["WIDTH"] = int(data["WIDTH"])
     data["HEIGHT"] = int(data["HEIGHT"])
-    perfect_raw: str = str(data.get("PERFECT", "")).lower()
-    data["PERFECT"] = perfect_raw == "true"
-
+    data["PERFECT"] = str(data.get("PERFECT", "")).lower()
     exit_point: Tuple[int, int] = data["EXIT"]
     data["EXIT"] = (exit_point[1], exit_point[0])
     entry_point: Tuple[int, int] = data["ENTRY"]
@@ -69,7 +67,7 @@ def transform_data(data: Dict[str, Any]) -> None:
             perfect=data["PERFECT"],
             output_file=data["OUTPUT_FILE"]
         )
-
+        data["PERFECT"] = data["PERFECT"] == "true"
     except Exception as e:
         raise ValueError(f"transform_data validation error: {e}")
 
