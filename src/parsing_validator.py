@@ -6,7 +6,7 @@ All validators include English docstrings and precise type annotations.
 """
 
 from __future__ import annotations
-from typing import Tuple, Optional, Type
+from typing import Tuple, Optional, Type, Any
 from pydantic import BaseModel, field_validator, ValidationInfo
 
 
@@ -36,7 +36,7 @@ class ParsingValidator(BaseModel):
 
     @field_validator("perfect")
     @classmethod
-    def check_perfect(cls: Type[ParsingValidator], v: bool) -> bool:
+    def check_perfect(cls: Type[ParsingValidator], v: Any) -> bool:
         """Validate that the perfect field is a boolean.
 
         Ensures the 'perfect' field is explicitly a boolean value,
@@ -52,9 +52,17 @@ class ParsingValidator(BaseModel):
         Raises:
             ValueError: If the value is not a boolean.
         """
-        if v != "true" and v != "false" and not isinstance(v, bool):
-            raise ValueError("perfect must be a boolean")
-        return v
+        if isinstance(v, bool):
+            return v
+
+        if isinstance(v, str):
+            val = v.strip().lower()
+            if val == "true":
+                return True
+            if val == "false":
+                return False
+
+        raise ValueError("perfect must be a boolean or 'true'/'false' string")
 
     @field_validator("width", "height")
     @classmethod
